@@ -1,3 +1,5 @@
+//I utilized ChatGPT for help with this assignment.
+
 import winston = require('winston');
 
 import user = require('../user');
