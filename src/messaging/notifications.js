@@ -17,28 +17,35 @@ const plugins = require("../plugins");
 const meta = require("../meta");
 function Messaging() {
     let notifyQueue; // Only used to notify a user of a new chat message, see Messaging.notifyUser
-    function notifyUsersInRoom(fromUid, roomId, messageObj) {
+    // The next line cannot be made any shorter
+    // eslint-disable-next-line @typescript-eslint/max-len
+    function notifyUsersInRoom({ fromUid, roomId, messageObj }) {
         return __awaiter(this, void 0, void 0, function* () {
+            // The next line calls a function in a module that has not been updated to TS yet
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
             let uids = yield this.getUidsInRoom(roomId, 0, -1);
-            uids = yield user.blocks.filterUids(fromUid, uids);
+            // The next line calls a function in a module that has not been updated to TS yet
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+            uids = (yield user.blocks.filterUids(fromUid, uids));
             let data = {
                 roomId: roomId,
                 fromUid: fromUid,
                 message: messageObj,
                 uids: uids,
             };
-            data = yield plugins.hooks.fire('filter:messaging.notify', data);
+            // The next line calls a function in a module that has not been updated to TS yet
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+            data = (yield plugins.hooks.fire('filter:messaging.notify', data));
             if (!data || !data.uids || !data.uids.length) {
                 return;
             }
             uids = data.uids;
             const isSenderSameAsRecipient = (recipientUid) => parseInt(recipientUid, 10) === parseInt(fromUid, 10);
-            uids.forEach(function (uid) {
+            for (let i = 0; i < uids.length; i++) {
+                const uid = uids[i];
                 this.pushUnreadCount(uid);
-                sockets.in('uid_' + uid).emit('event:chats.receive', Object.assign({}, data, {
-                    self: this.isSenderSameAsRecipient(uid) ? 1 : 0
-                }));
-            });
+                sockets.in(`uid_${uid}`).emit('event:chats.receive', Object.assign(Object.assign({}, data), { self: isSenderSameAsRecipient(uid) ? 1 : 0 }));
+            }
             if (messageObj.system) {
                 return;
             }
@@ -56,6 +63,8 @@ function Messaging() {
             }
             queueObj.timeout = setTimeout(() => __awaiter(this, void 0, void 0, function* () {
                 try {
+                    // The next line calls a function in a module that has not been updated to TS yet
+                    //eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
                     yield this.sendNotifications(fromUid, uids, roomId, queueObj.message);
                 }
                 catch (err) {
@@ -64,15 +73,21 @@ function Messaging() {
             }), meta.config.notificationSendDelay * 1000);
         });
     }
-    function sendNotifications(fromUid, uids, roomId, messageObj) {
+    function sendNotifications({ fromUid, uids, roomId, messageObj }) {
         return __awaiter(this, void 0, void 0, function* () {
+            // The next line calls a function in a module that has not been updated to TS yet
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
             const isOnline = yield user.isOnline(uids);
             uids = uids.filter((uid, index) => !isOnline[index] && parseInt(fromUid, 10) !== parseInt(uid, 10));
             if (!uids.length) {
                 return;
             }
             const { displayname } = messageObj.fromUser;
+            // The next line calls a function in a module that has not been updated to TS yet
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
             const isGroupChat = yield this.isGroupChat(roomId);
+            // The next line calls a function in a module that has not been updated to TS yet
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const notification = yield notifications.create({
                 type: isGroupChat ? 'new-group-chat' : 'new-chat',
                 subject: `[[email:notif.chat.subject, ${displayname}]]`,

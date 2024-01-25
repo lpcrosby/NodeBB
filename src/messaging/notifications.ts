@@ -1,20 +1,26 @@
-
-
 import winston = require('winston');
 
 import user = require('../user');
 import notifications = require('../notifications');
+import { Notifications } from '../notifications';
 import sockets = require('../socket.io');
 import plugins = require('../plugins');
 import meta = require('../meta');
 import { Messaging } from '.';
+import { MessageObject } from '../types/chat';
 
 export default function Messaging() {
     let notifyQueue: NonNullable<unknown>; // Only used to notify a user of a new chat message, see Messaging.notifyUser
 
-    async function notifyUsersInRoom(this: Messaging, fromUid: string, roomId: string, messageObj: any): Promise<void> {
-        let uids: string[] = await this.getUidsInRoom(roomId, 0, -1);
-        uids = await user.blocks.filterUids(fromUid, uids);
+    // The next line cannot be made any shorter
+    // eslint-disable-next-line @typescript-eslint/max-len
+    async function notifyUsersInRoom(this: Messaging, { fromUid, roomId, messageObj }: { fromUid: string; roomId: string; messageObj: MessageObject; }): Promise<void> {
+        // The next line calls a function in a module that has not been updated to TS yet
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        let uids: string[] = await this.getUidsInRoom(roomId, 0, -1) as string[];
+        // The next line calls a function in a module that has not been updated to TS yet
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        uids = await user.blocks.filterUids(fromUid, uids) as string[];
 
         let data = {
             roomId: roomId,
@@ -23,7 +29,9 @@ export default function Messaging() {
             uids: uids,
         };
 
-        data = await plugins.hooks.fire('filter:messaging.notify', data);
+        // The next line calls a function in a module that has not been updated to TS yet
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        data = await plugins.hooks.fire('filter:messaging.notify', data) as typeof data;
         if (!data || !data.uids || !data.uids.length) {
             return;
         }
@@ -31,12 +39,14 @@ export default function Messaging() {
         uids = data.uids;
         const isSenderSameAsRecipient = (recipientUid: string) => parseInt(recipientUid, 10) === parseInt(fromUid, 10);
 
-        uids.forEach(function(uid: string) {
+        for (let i = 0; i < uids.length; i++) {
+            const uid = uids[i];
             this.pushUnreadCount(uid);
-            sockets.in('uid_' + uid).emit('event:chats.receive', Object.assign({}, data, {
-                self: this.isSenderSameAsRecipient(uid) ? 1 : 0
-            }));
-        });
+            sockets.in(`uid_${uid}`).emit('event:chats.receive', {
+                ...data,
+                self: isSenderSameAsRecipient(uid) ? 1 : 0,
+            });
+        }
 
         if (messageObj.system) {
             return;
@@ -55,6 +65,8 @@ export default function Messaging() {
 
         queueObj.timeout = setTimeout(async () => {
             try {
+                // The next line calls a function in a module that has not been updated to TS yet
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
                 await this.sendNotifications(fromUid, uids, roomId, queueObj.message);
             } catch (err) {
                 winston.error(`[messaging/notifications] Unabled to send notification\n${err.stack}`);
@@ -62,17 +74,24 @@ export default function Messaging() {
         }, meta.config.notificationSendDelay * 1000);
     }
 
-    async function sendNotifications(fromUid: string, uids: string[], roomId: string, messageObj: any): Promise<void> {
-        const isOnline = await user.isOnline(uids);
+    async function sendNotifications(this: Messaging, { fromUid, uids, roomId, messageObj }: { fromUid: string; uids: string[]; roomId: string; messageObj: MessageObject; }): Promise<void> {
+        // The next line calls a function in a module that has not been updated to TS yet
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        const isOnline = await user.isOnline(uids) as boolean[];
+
         uids = uids.filter((uid: string, index: number) => !isOnline[index] && parseInt(fromUid, 10) !== parseInt(uid, 10));
         if (!uids.length) {
             return;
         }
 
         const { displayname } = messageObj.fromUser;
+        // The next line calls a function in a module that has not been updated to TS yet
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        const isGroupChat = await this.isGroupChat(roomId) as boolean;
 
-        const isGroupChat = await this.isGroupChat(roomId);
-        const notification = await notifications.create({
+        // The next line calls a function in a module that has not been updated to TS yet
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const notification : Notifications = await notifications.create({
             type: isGroupChat ? 'new-group-chat' : 'new-chat',
             subject: `[[email:notif.chat.subject, ${displayname}]]`,
             bodyShort: `[[notifications:new_message_from, ${displayname}]]`,
@@ -80,7 +99,7 @@ export default function Messaging() {
             nid: `chat_${fromUid}_${roomId}`,
             from: fromUid,
             path: `/chats/${messageObj.roomId}`,
-        });
+        }) as Notifications;
 
         delete this.notifyQueue[`${fromUid}:${roomId}`];
         notifications.push(notification, uids);
